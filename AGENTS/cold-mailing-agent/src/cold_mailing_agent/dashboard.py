@@ -1,7 +1,5 @@
 import streamlit as st
 import pandas as pd
-import sqlite3
-from datetime import datetime
 from supabase import create_client, Client
 import os
 from dotenv import load_dotenv
@@ -18,24 +16,6 @@ st.set_page_config(page_title="Cold Mailing Agent Dashboard", layout="wide")
 
 st.title("📧 Cold Mailing Agent Dashboard")
 
-
-# 🔧 Ensure DB and table exist before reading
-def init_db():
-    conn = sqlite3.connect("database.db")
-    c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS outreach_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT,
-            company TEXT,
-            email TEXT,
-            timestamp TEXT
-        )
-    ''')
-    conn.commit()
-    conn.close()
-
-init_db()
 
 @st.cache_data(ttl=1)
 def load_logs():
