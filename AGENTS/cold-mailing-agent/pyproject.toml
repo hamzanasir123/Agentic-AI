@@ -6,7 +6,7 @@ readme = "README.md"
 authors = [
     { name = "hamzanasir123", email = "hk435981@gmail.com" }
 ]
-requires-python = ">=3.11"
+requires-python = ">=3.10,<3.12"
 dependencies = [
     "aiohttp>=3.12.9",
     "flask>=3.1.1",
@@ -19,7 +19,7 @@ dependencies = [
     "selenium>=4.33.0",
     "sendgrid>=6.12.3",
     "streamlit>=1.45.1",
-    "supabase>=2.15.3",
+    "supabase-py>=2.1.0",  
 ]
 
 [project.scripts]
