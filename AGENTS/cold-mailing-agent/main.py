@@ -7,8 +7,8 @@ from openai import AsyncOpenAI
 from dotenv import load_dotenv
 from datetime import datetime
 from supabase import create_client
-import sqlite3
 import requests
+import schedule
 import os
 import html
 import json
@@ -24,6 +24,8 @@ api_key = os.getenv("GEMINI_API_KEY")
 brevo_api_key = os.getenv("BREVO_API_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # Initialize external client and model
 external_client = AsyncOpenAI(
@@ -79,12 +81,12 @@ def extract_json_from_output(output: str):
         raise json.JSONDecodeError("Unable to decode valid JSON", cleaned, 0)
 
 def is_duplicate(email):
-    conn = sqlite3.connect("database.db")
-    c = conn.cursor()
-    c.execute("SELECT COUNT(*) FROM outreach_logs WHERE email = ?", (email,))
-    count = c.fetchone()[0]
-    conn.close()
-    return count > 0
+    try:
+        response = supabase.table("cold_mailing_agent").select("email").eq("email", email).execute()
+        return len(response.data) > 0
+    except Exception as e:
+        print(f"Error checking duplicate email: {str(e)}")
+        return False
 
 
 
@@ -210,22 +212,6 @@ def send_email(to_email, subject, content, lead):
     print(f"Logged: {lead['Email']} - {response.status_code}")
     return response.status_code, response.text
 
-def init_db():
-    conn = sqlite3.connect("database.db")
-    c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS outreach_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT,
-            company TEXT,
-            email TEXT,
-            timestamp TEXT
-        )
-    ''')
-    conn.commit()
-    conn.close()
-
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
 def log_email(lead):
@@ -235,24 +221,23 @@ def log_email(lead):
         "email": lead.get("Email"),
         "timestamp": datetime.now().isoformat()
     }
-    supabase.table("outreach_logs").insert(data).execute()
+    supabase.table("cold_mailing_agent").insert(data).execute()
 
 
 def show_logs():
     try:
-        conn = sqlite3.connect("database.db")
-        logs_df = pd.read_sql_query("SELECT * FROM outreach_logs", conn)
-        conn.close()
-        if logs_df.empty:
+        response = supabase.table("cold_mailing_agent").select("*").execute()
+        data = response.data
+        if not data:
             print("No outreach logs available.")
         else:
+            logs_df = pd.DataFrame(data)
             print(logs_df.to_string(index=False))
     except Exception as e:
         print(f"Error loading logs: {str(e)}")
 
 def run_outreach():
     try:
-        init_db()
         leads = find_leads()
         for lead in leads:
             if is_duplicate(lead["Email"]):
@@ -260,6 +245,7 @@ def run_outreach():
                 continue
 
             email_text = generate_email(lead)
+
             status, response = send_email(
                 lead['Email'],
                 f"Helping {lead['Company']}",
@@ -274,12 +260,9 @@ def run_outreach():
         print(f"Outreach failed: {str(e)}")
 
 
-
-import schedule
-
 schedule.every(2).minutes.do(run_outreach)
 
 while True:
-    # print("AGENT RUNNING.....")
     schedule.run_pending()
     time.sleep(1)
+
