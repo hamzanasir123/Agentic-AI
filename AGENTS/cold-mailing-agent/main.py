@@ -260,7 +260,7 @@ def run_outreach():
         print(f"Outreach failed: {str(e)}")
 
 
-schedule.every(2).minutes.do(run_outreach)
+schedule.every(72).minutes.do(run_outreach)
 
 while True:
     schedule.run_pending()
